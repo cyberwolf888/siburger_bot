@@ -17,6 +17,7 @@
   "description": "Telegram bot built with Telegraf.js and TypeScript",
   "dependencies": {
     "dotenv": "^17.0.0",
+    "firebase-admin": "^13.4.0",
     "telegraf": "^4.16.3"
   },
   "devDependencies": {
@@ -26,6 +27,7 @@
     "eslint": "^8.57.1",
     "eslint-config-prettier": "^10.1.5",
     "eslint-plugin-prettier": "^5.5.1",
+    "firebase-tools": "^14.9.0",
     "nodemon": "^3.1.10",
     "prettier": "^3.6.2",
     "ts-node": "^10.9.2",

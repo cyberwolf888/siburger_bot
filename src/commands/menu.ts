@@ -1,6 +1,12 @@
 import { Context } from "telegraf";
+import { User, UsersService } from "../utilities/database";
 
-export function menuCommand(ctx: Context) {
+export async function menuCommand(ctx: Context) {
+  const sender = ctx.from;
+  if (!sender) {
+    ctx.reply("❌ Error: Unable to retrieve user information.");
+    return;
+  }
   const menu = `
 🍔 **SiBurger Menu** 🍔
 
@@ -24,5 +30,19 @@ export function menuCommand(ctx: Context) {
 🧃 Fresh Juice - $3.99
 ☕ Coffee - $2.49
   `;
+  // create user from sender
+  const user: User = {
+    id: sender.id,
+    firstName: sender.first_name,
+    lastName: sender.last_name,
+    username: sender.username,
+    createdAt: new Date(),
+    lastActive: new Date(),
+    orderCount: 0,
+  };
+
+  // Save or update user in the database
+  await UsersService.createOrUpdateUser(user);
+
   ctx.reply(menu, { parse_mode: "Markdown" });
 }

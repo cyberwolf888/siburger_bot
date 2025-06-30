@@ -47,9 +47,9 @@ export default [
       "@typescript-eslint/explicit-module-boundary-types": "off",
       "@typescript-eslint/no-explicit-any": "warn",
       "no-console": "off",
-      "@typescript-eslint/prefer-const": "error",
-      "@typescript-eslint/no-var-requires": "error",
+      // Fixed: Remove @typescript-eslint/ prefix - prefer-const is a core ESLint rule
       "prefer-const": "error",
+      "@typescript-eslint/no-var-requires": "error",
       "no-var": "error",
       "object-shorthand": "error",
       "prefer-arrow-callback": "error",
