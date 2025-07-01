@@ -26,38 +26,24 @@ steps:
     args:
       - "-c"
       - |
-        # Define bash variables. Cloud Build substitutions like ${_REPO_NAME} are processed first.
-        IMAGE_NAME="${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REGISTRY_ID}/${_REPO_NAME}:${SHORT_SHA}"
-        CONTAINER_NAME="${_REPO_NAME}"
+        gcloud compute scp /workspace/env_vars ${_GCE_USER}@${_GCE_INSTANCE_NAME}:$/tmp/siburger-bot.env --zone ${_GCE_ZONE}
 
-        # --- FIX IS HERE ---
-        # Escape the bash variables with $$ to prevent Cloud Build from substituting them.
-        # This tells Cloud Build to output a literal string like "/tmp/${CONTAINER_NAME}.env"
-        # which the bash shell can then correctly interpret.
-        REMOTE_ENV_FILE="/tmp/$${CONTAINER_NAME}.env"
-
-        # --- AND FIX IS HERE ---
-        # Use the escaped bash variable in the scp command as well.
-        gcloud compute scp /workspace/env_vars ${_GCE_USER}@${_GCE_INSTANCE_NAME}:$${REMOTE_ENV_FILE} --zone ${_GCE_ZONE}
-
-        # The rest of the command is now correct. The local shell will expand IMAGE_NAME and REMOTE_ENV_FILE
-        # before passing the command string to gcloud compute ssh.
         gcloud compute ssh ${_GCE_USER}@${_GCE_INSTANCE_NAME} --zone ${_GCE_ZONE} --command=" \
-          if [ \\\$(sudo docker ps -q -f name=^\\\$CONTAINER_NAME\\\$) ]; then \
+          if [ \\\$(sudo docker ps -q -f name=^\siburger-bot\$) ]; then \
             echo 'Stopping and removing old container...' && \
-            sudo docker stop \\\$CONTAINER_NAME && sudo docker rm \\\$CONTAINER_NAME; \
+            sudo docker stop siburger-bot && sudo docker rm siburger-bot; \
           fi && \
           \
           echo 'Pulling new image...' && \
-          sudo docker pull ${IMAGE_NAME} && \
+          sudo docker pull \"${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REGISTRY_ID}/${_REPO_NAME}:${SHORT_SHA}\" && \
           \
           echo 'Starting new container with environment file...' && \
-          sudo docker run -d --name \\\$CONTAINER_NAME --restart=always \
-            --env-file ${REMOTE_ENV_FILE} \
-            ${IMAGE_NAME} && \
+          sudo docker run -d --name siburger-bot --restart=always \
+            --env-file \"/tmp/siburger-bot.env\" \
+            \"${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REGISTRY_ID}/${_REPO_NAME}:${SHORT_SHA}\" && \
           \
           echo 'Deployment Succeeded. Cleaning up environment file...' && \
-          rm ${REMOTE_ENV_FILE} && \
+          rm \"/tmp/siburger-bot.env\" && \
           \
           echo 'Cleanup Succeeded.' \
         "
