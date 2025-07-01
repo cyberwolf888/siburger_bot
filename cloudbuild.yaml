@@ -4,14 +4,14 @@ steps:
     args:
       - "build"
       - "-t"
-      - "${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REGISTRY_ID}/${REPO_NAME}:${SHORT_SHA}"
+      - "${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REGISTRY_ID}/${_REPO_NAME}:${SHORT_SHA}"
       - "."
 
   # 2. Push the image to your central Artifact Registry
   - name: "gcr.io/cloud-builders/docker"
     args:
       - "push"
-      - "${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REGISTRY_ID}/${REPO_NAME}:${SHORT_SHA}"
+      - "${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REGISTRY_ID}/${_REPO_NAME}:${SHORT_SHA}"
 
   # 3. Get the application's environment variables from Secret Manager
   #    We store all environment variables in a single secret
@@ -31,8 +31,8 @@ steps:
         source /workspace/env_vars
 
         gcloud compute ssh ${_GCE_USER}@${_GCE_INSTANCE_NAME} --zone ${_GCE_ZONE} --command=" \
-          IMAGE_NAME=${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REGISTRY_ID}/${REPO_NAME}:${SHORT_SHA} && \
-          CONTAINER_NAME=${REPO_NAME} && \
+          IMAGE_NAME=${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REGISTRY_ID}/${_REPO_NAME}:${SHORT_SHA} && \
+          CONTAINER_NAME=${_REPO_NAME} && \
           \
           if [ \$(sudo docker ps -q -f name=^\${CONTAINER_NAME}\$) ]; then \
             sudo docker stop \${CONTAINER_NAME} && sudo docker rm \${CONTAINER_NAME}; \
@@ -61,6 +61,7 @@ substitutions:
   _GCE_ZONE: "your-instance-zone" # e.g., us-central1-a
   _GCE_USER: "your-gce-user" # The linux username on the GCE machine (e.g., from `whoami`)
   _ENV_SECRET_NAME: "siburger-bot-env" # The name of the secret in Secret Manager that contains all environment variables
+  _REPO_NAME: "siburger-bot" # The repository/application name
 
 options:
   logging: CLOUD_LOGGING_ONLY
