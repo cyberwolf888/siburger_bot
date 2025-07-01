@@ -26,16 +26,22 @@ steps:
     args:
       - "-c"
       - |
-        # Define variables for clarity
+        # Define bash variables. Cloud Build substitutions like ${_REPO_NAME} are processed first.
         IMAGE_NAME="${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REGISTRY_ID}/${_REPO_NAME}:${SHORT_SHA}"
         CONTAINER_NAME="${_REPO_NAME}"
-        REMOTE_ENV_FILE="/tmp/${CONTAINER_NAME}.env"
 
-        # Step 4.1: Securely copy the environment file from the Cloud Build workspace to the GCE instance.
-        gcloud compute scp /workspace/env_vars ${_GCE_USER}@${_GCE_INSTANCE_NAME}:${REMOTE_ENV_FILE} --zone ${_GCE_ZONE}
+        # --- FIX IS HERE ---
+        # Escape the bash variables with $$ to prevent Cloud Build from substituting them.
+        # This tells Cloud Build to output a literal string like "/tmp/${CONTAINER_NAME}.env"
+        # which the bash shell can then correctly interpret.
+        REMOTE_ENV_FILE="/tmp/$${CONTAINER_NAME}.env"
 
-        # Step 4.2: SSH into the instance and run the Docker commands.
-        # This is now much cleaner because we use --env-file instead of dozens of -e flags.
+        # --- AND FIX IS HERE ---
+        # Use the escaped bash variable in the scp command as well.
+        gcloud compute scp /workspace/env_vars ${_GCE_USER}@${_GCE_INSTANCE_NAME}:$${REMOTE_ENV_FILE} --zone ${_GCE_ZONE}
+
+        # The rest of the command is now correct. The local shell will expand IMAGE_NAME and REMOTE_ENV_FILE
+        # before passing the command string to gcloud compute ssh.
         gcloud compute ssh ${_GCE_USER}@${_GCE_INSTANCE_NAME} --zone ${_GCE_ZONE} --command=" \
           if [ \\\$(sudo docker ps -q -f name=^\\\$CONTAINER_NAME\\\$) ]; then \
             echo 'Stopping and removing old container...' && \
@@ -56,15 +62,14 @@ steps:
           echo 'Cleanup Succeeded.' \
         "
 
-# Your substitution variables remain the same. Ensure they are correct in your trigger settings.
 substitutions:
   _REGION: "us-central1"
   _REGISTRY_ID: "my-applications"
-  _GCE_INSTANCE_NAME: "your-instance-name"
-  _GCE_ZONE: "your-instance-zone"
-  _GCE_USER: "your-gce-user"
+  _GCE_INSTANCE_NAME: "instance-1"
+  _GCE_ZONE: "asia-southeast2-a"
+  _GCE_USER: "gcloud_user"
   _ENV_SECRET_NAME: "siburger-bot-env"
-  _REPO_NAME: "siburger-bot" # This should match your repo name for consistency
+  _REPO_NAME: "siburger-bot"
 
 options:
   logging: CLOUD_LOGGING_ONLY

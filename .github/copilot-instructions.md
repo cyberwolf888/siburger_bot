@@ -18,7 +18,8 @@
 - **Runtime**: Node.js with TypeScript
 - **Bot Framework**: Telegraf.js v4.16.3
 - **Database**: Firebase Firestore for orders and user tracking
-- **Environment**: dotenv for configuration
+- **Environment**: `dotenv` for local configuration, Google Secret Manager for production.
+- **Deployment**: Docker container deployed to Google Compute Engine (GCE) via Cloud Build.
 - **Build**: TypeScript compiler with strict mode
 
 ### Project Structure
@@ -177,6 +178,16 @@ bot.command("command", commandName);
 - Implement graceful shutdown for SIGINT/SIGTERM
 - Call `bot.stop()` with signal name
 - Exit process after cleanup
+
+## Deployment
+
+The application is deployed using a `cloudbuild.yaml` pipeline.
+
+1.  **Build & Push**: A Docker image is built and pushed to Google Artifact Registry.
+2.  **Fetch Env Vars**: Production environment variables are fetched from Google Secret Manager and written to a temporary file.
+3.  **Deploy to GCE**: The new Docker image is pulled on the GCE instance, and the container is started using the fetched environment variables via the `--env-file` flag.
+
+This setup ensures that secrets are not hardcoded and the deployment is automated.
 
 ## Restaurant Domain
 
