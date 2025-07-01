@@ -17,6 +17,7 @@
 
 - **Runtime**: Node.js with TypeScript
 - **Bot Framework**: Telegraf.js v4.16.3
+- **Database**: Firebase Firestore for orders and user tracking
 - **Environment**: dotenv for configuration
 - **Build**: TypeScript compiler with strict mode
 
@@ -24,26 +25,39 @@
 
 ```
 src/
-├── index.ts          # Main bot entry point with all handlers
-├── types/            # TypeScript definitions (future expansion)
-├── commands/         # Command handlers (future modularization)
-├── middleware/       # Custom middleware (future expansion)
-└── utils/            # Utility functions (future expansion)
+├── index.ts          # Main bot entry point with middleware and routing
+├── commands/         # Modular command handlers
+│   ├── start.ts      # Welcome command
+│   ├── help.ts       # Help command
+│   ├── menu.ts       # Menu display with user tracking
+│   ├── order.ts      # Order processing with Firebase integration
+│   └── status.ts     # Order status checking and user order history
+└── utilities/        # Core utilities
+    ├── firebase.ts   # Firebase Admin SDK setup and validation
+    └── database.ts   # Firestore operations and data models
 ```
 
 ### Current Implementation
 
-- Single-file bot implementation in `src/index.ts`
-- Polling-based message handling (no webhooks configured)
-- Basic command handlers: `/start`, `/help`, `/menu`, `/order`, `/status`
-- Text message processing with keyword detection
-- Graceful shutdown handling (SIGINT/SIGTERM)
+- **Modular Architecture**: Commands separated into individual files with clear exports
+- **Firebase Integration**: Full order management with Firestore persistence
+- **Smart Order Processing**: Natural language parsing in `processOrderText()`
+- **User Tracking**: Automatic user creation/updates via middleware
+- **Polling-based**: No webhooks configured (uses `bot.launch()`)
+- **Graceful Shutdown**: SIGINT/SIGTERM handling with `bot.stop()`
 
 ## Environment Configuration
 
 ### Required Variables
 
 - `BOT_TOKEN` - Telegram bot token from @BotFather (required)
+
+### Firebase Configuration (Optional - bot runs without it)
+
+- `FIREBASE_PROJECT_ID` - Firebase project ID
+- `FIREBASE_PRIVATE_KEY` - Firebase service account private key (with escaped newlines)
+- `FIREBASE_CLIENT_EMAIL` - Firebase service account email
+- `FIREBASE_DATABASE_ID` - Firestore database ID (e.g., "siburger")
 
 ### Optional Variables
 
@@ -52,8 +66,9 @@ src/
 
 ### Environment Setup
 
-- Copy `.env.example` to `.env` and configure variables
-- Validate `BOT_TOKEN` presence before bot launch
+- Firebase configuration is validated in `validateFirebaseConfig()` - bot warns but continues if incomplete
+- Private key requires `\\n` escaping in `.env` file, automatically converted in `firebase.ts`
+- Bot validates `BOT_TOKEN` presence before launch and exits if missing
 
 ## TypeScript Configuration
 
@@ -87,22 +102,68 @@ src/
 - Trailing commas in ES5 contexts
 - LF line endings
 
+## Firebase Integration Patterns
+
+### Database Services Pattern
+
+- Use `OrdersService` and `UsersService` classes for all Firestore operations
+- Methods return TypeScript interfaces: `Order`, `User`, `OrderItem`
+- Service methods handle error cases and return null for missing documents
+
+### Order Management Flow
+
+```typescript
+// Create order with auto-generated ID
+const orderId = await OrdersService.createOrder(orderData);
+
+// Order IDs displayed as 8-character uppercase substrings for user-friendly reference
+const displayId = orderId.substring(0, 8).toUpperCase();
+
+// Status transitions: pending → confirmed → preparing → ready → delivered
+await OrdersService.updateOrderStatus(orderId, "confirmed");
+```
+
+### User Tracking Middleware
+
+```typescript
+// Automatic user creation/update in index.ts middleware
+if (ctx.from) {
+  await UsersService.createOrUpdateUser({
+    id: ctx.from.id,
+    username: ctx.from.username,
+    firstName: ctx.from.first_name,
+    lastName: ctx.from.last_name,
+  });
+}
+```
+
 ## Bot Development Patterns
 
 ### Command Handlers
 
 ```typescript
-bot.command("commandname", (ctx) => {
-  // Handle command logic
+// Export named functions from command files
+export function commandName(ctx: Context) {
   ctx.reply("Response message");
-});
+}
+
+// Import and register in index.ts
+import { commandName } from "./commands/command";
+bot.command("command", commandName);
 ```
 
-### Message Processing
+### Natural Language Order Processing
 
-- Use `bot.on("text", callback)` for text message handling
-- Implement keyword-based responses with `message.toLowerCase().includes()`
-- Provide helpful fallback responses
+- Use regex patterns to parse quantities and item names: `/(\d+)\s+([a-zA-Z\s]+)/g`
+- Match against `MENU_ITEMS` from `database.ts` using fuzzy string matching
+- Return boolean from `processOrderText()` to indicate successful parsing
+
+### Text Message Routing in index.ts
+
+- Check for "my orders" keywords → `getUserOrders()`
+- Match 8-character hex patterns → `checkOrderStatus()`
+- Detect order patterns with numbers + food words → `processOrderText()`
+- Fallback to keyword-based responses
 
 ### Error Handling
 

@@ -18,8 +18,7 @@ let app;
 if (getApps().length === 0) {
   app = initializeApp({
     credential: cert(firebaseConfig),
-    databaseURL: process.env.FIREBASE_DATABASE_URL,
-    storageBucket: process.env.FIREBASE_STORAGE_BUCKET,
+    projectId: process.env.FIREBASE_PROJECT_ID || "",
   });
 } else {
   app = getApps()[0];
