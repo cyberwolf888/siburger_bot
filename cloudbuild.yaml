@@ -34,13 +34,13 @@ steps:
           IMAGE_NAME=${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REGISTRY_ID}/${_REPO_NAME}:${SHORT_SHA} && \
           CONTAINER_NAME=${_REPO_NAME} && \
           \
-          if [ \$(sudo docker ps -q -f name=^\${CONTAINER_NAME}\$) ]; then \
-            sudo docker stop \${CONTAINER_NAME} && sudo docker rm \${CONTAINER_NAME}; \
+          if [ \\\$(sudo docker ps -q -f name=^\\\$CONTAINER_NAME\\\$) ]; then \
+            sudo docker stop \\\$CONTAINER_NAME && sudo docker rm \\\$CONTAINER_NAME; \
           fi && \
           \
-          sudo docker pull \${IMAGE_NAME} && \
+          sudo docker pull \\\$IMAGE_NAME && \
           \
-          sudo docker run -d --name \${CONTAINER_NAME} --restart=always \
+          sudo docker run -d --name \\\$CONTAINER_NAME --restart=always \
             -e BOT_TOKEN=\${BOT_TOKEN} \
             -e NODE_ENV=\${NODE_ENV:-production} \
             -e PORT=\${PORT:-3000} \
@@ -48,7 +48,7 @@ steps:
             -e FIREBASE_CLIENT_EMAIL=\${FIREBASE_CLIENT_EMAIL} \
             -e FIREBASE_DATABASE_ID=\${FIREBASE_DATABASE_ID} \
             -e FIREBASE_PROJECT_ID=\${FIREBASE_PROJECT_ID} \
-            \${IMAGE_NAME} && \
+            \\\$IMAGE_NAME && \
           \
           echo 'Deployment Succeeded' \
         "
