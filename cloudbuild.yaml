@@ -1,5 +1,5 @@
 steps:
-  # 1. Build the Docker image for this application
+  # 1. Build the Docker image
   - name: "gcr.io/cloud-builders/docker"
     args:
       - "build"
@@ -7,61 +7,64 @@ steps:
       - "${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REGISTRY_ID}/${_REPO_NAME}:${SHORT_SHA}"
       - "."
 
-  # 2. Push the image to your central Artifact Registry
+  # 2. Push the image to Artifact Registry
   - name: "gcr.io/cloud-builders/docker"
     args:
       - "push"
       - "${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REGISTRY_ID}/${_REPO_NAME}:${SHORT_SHA}"
 
   # 3. Get the application's environment variables from Secret Manager
-  #    We store all environment variables in a single secret
   - name: "gcr.io/cloud-builders/gcloud"
     entrypoint: "bash"
     args:
       - "-c"
       - "gcloud secrets versions access latest --secret=${_ENV_SECRET_NAME} > /workspace/env_vars"
 
-  # 4. Deploy to GCE by running remote Docker commands via SSH
+  # 4. Deploy to GCE using a secure environment file
   - name: "gcr.io/cloud-builders/gcloud"
     entrypoint: "bash"
     args:
       - "-c"
       - |
-        # Read environment variables from the secret file
-        source /workspace/env_vars
+        # Define variables for clarity
+        IMAGE_NAME="${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REGISTRY_ID}/${_REPO_NAME}:${SHORT_SHA}"
+        CONTAINER_NAME="${_REPO_NAME}"
+        REMOTE_ENV_FILE="/tmp/${CONTAINER_NAME}.env"
 
+        # Step 4.1: Securely copy the environment file from the Cloud Build workspace to the GCE instance.
+        gcloud compute scp /workspace/env_vars ${_GCE_USER}@${_GCE_INSTANCE_NAME}:${REMOTE_ENV_FILE} --zone ${_GCE_ZONE}
+
+        # Step 4.2: SSH into the instance and run the Docker commands.
+        # This is now much cleaner because we use --env-file instead of dozens of -e flags.
         gcloud compute ssh ${_GCE_USER}@${_GCE_INSTANCE_NAME} --zone ${_GCE_ZONE} --command=" \
-          IMAGE_NAME=${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REGISTRY_ID}/${_REPO_NAME}:${SHORT_SHA} && \
-          CONTAINER_NAME=${_REPO_NAME} && \
-          \
           if [ \\\$(sudo docker ps -q -f name=^\\\$CONTAINER_NAME\\\$) ]; then \
+            echo 'Stopping and removing old container...' && \
             sudo docker stop \\\$CONTAINER_NAME && sudo docker rm \\\$CONTAINER_NAME; \
           fi && \
           \
-          sudo docker pull \\\$IMAGE_NAME && \
+          echo 'Pulling new image...' && \
+          sudo docker pull ${IMAGE_NAME} && \
           \
+          echo 'Starting new container with environment file...' && \
           sudo docker run -d --name \\\$CONTAINER_NAME --restart=always \
-            -e BOT_TOKEN=\${BOT_TOKEN} \
-            -e NODE_ENV=\${NODE_ENV:-production} \
-            -e PORT=\${PORT:-3000} \
-            -e FIREBASE_PRIVATE_KEY=\${FIREBASE_PRIVATE_KEY} \
-            -e FIREBASE_CLIENT_EMAIL=\${FIREBASE_CLIENT_EMAIL} \
-            -e FIREBASE_DATABASE_ID=\${FIREBASE_DATABASE_ID} \
-            -e FIREBASE_PROJECT_ID=\${FIREBASE_PROJECT_ID} \
-            \\\$IMAGE_NAME && \
+            --env-file ${REMOTE_ENV_FILE} \
+            ${IMAGE_NAME} && \
           \
-          echo 'Deployment Succeeded' \
+          echo 'Deployment Succeeded. Cleaning up environment file...' && \
+          rm ${REMOTE_ENV_FILE} && \
+          \
+          echo 'Cleanup Succeeded.' \
         "
 
-# Define substitution variables that we will set in the trigger
+# Your substitution variables remain the same. Ensure they are correct in your trigger settings.
 substitutions:
-  _REGION: "us-central1" # The region of your Artifact Registry
-  _REGISTRY_ID: "my-applications" # The ID of your Artifact Registry
-  _GCE_INSTANCE_NAME: "your-instance-name" # Your GCE instance name
-  _GCE_ZONE: "your-instance-zone" # e.g., us-central1-a
-  _GCE_USER: "your-gce-user" # The linux username on the GCE machine (e.g., from `whoami`)
-  _ENV_SECRET_NAME: "siburger-bot-env" # The name of the secret in Secret Manager that contains all environment variables
-  _REPO_NAME: "siburger-bot" # The repository/application name
+  _REGION: "us-central1"
+  _REGISTRY_ID: "my-applications"
+  _GCE_INSTANCE_NAME: "your-instance-name"
+  _GCE_ZONE: "your-instance-zone"
+  _GCE_USER: "your-gce-user"
+  _ENV_SECRET_NAME: "siburger-bot-env"
+  _REPO_NAME: "siburger-bot" # This should match your repo name for consistency
 
 options:
   logging: CLOUD_LOGGING_ONLY
