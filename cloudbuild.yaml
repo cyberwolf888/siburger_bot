@@ -61,3 +61,6 @@ substitutions:
   _GCE_ZONE: "your-instance-zone" # e.g., us-central1-a
   _GCE_USER: "your-gce-user" # The linux username on the GCE machine (e.g., from `whoami`)
   _ENV_SECRET_NAME: "siburger-bot-env" # The name of the secret in Secret Manager that contains all environment variables
+
+options:
+  logging: CLOUD_LOGGING_ONLY
