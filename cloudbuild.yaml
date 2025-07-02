@@ -26,26 +26,27 @@ steps:
     args:
       - "-c"
       - |
-        gcloud compute scp /workspace/env_vars ${_GCE_USER}@${_GCE_INSTANCE_NAME}:$/tmp/siburger-bot.env --zone ${_GCE_ZONE}
+        gcloud compute scp /workspace/env_vars ${_GCE_USER}@${_GCE_INSTANCE_NAME}:/tmp/${_REPO_NAME}.env --zone ${_GCE_ZONE}
 
         gcloud compute ssh ${_GCE_USER}@${_GCE_INSTANCE_NAME} --zone ${_GCE_ZONE} --command=" \
-          if [ \\\$(sudo docker ps -q -f name=^\siburger-bot\$) ]; then \
+          if [ \$(sudo docker ps -q -f name=^${_REPO_NAME}\$) ]; then \
             echo 'Stopping and removing old container...' && \
-            sudo docker stop siburger-bot && sudo docker rm siburger-bot; \
+            sudo docker stop ${_REPO_NAME} && sudo docker rm ${_REPO_NAME}; \
           fi && \
           \
           echo 'Pulling new image...' && \
           sudo docker pull \"${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REGISTRY_ID}/${_REPO_NAME}:${SHORT_SHA}\" && \
           \
           echo 'Starting new container with environment file...' && \
-          sudo docker run -d --name siburger-bot --restart=always \
-            --env-file \"/tmp/siburger-bot.env\" \
+          sudo docker run -d --name ${_REPO_NAME} --restart=always \
+            --env-file \"/tmp/${_REPO_NAME}.env\" \
             \"${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REGISTRY_ID}/${_REPO_NAME}:${SHORT_SHA}\" && \
           \
           echo 'Deployment Succeeded. Cleaning up environment file...' && \
-          rm \"/tmp/siburger-bot.env\" && \
+          rm \"/tmp/${_REPO_NAME}.env\" && \
           \
-          echo 'Cleanup Succeeded.' \
+          echo 'Cleanup Succeeded.' && \
+          echo 'Deployment completed successfully.'
         "
 
 substitutions:
