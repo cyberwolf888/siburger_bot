@@ -1,5 +1,25 @@
-# Use the official Node.js 18 LTS image
-FROM node:18-alpine
+
+# ----------- Build Phase -----------
+FROM node:18-alpine AS builder
+
+# Create app directory
+WORKDIR /app
+
+# Copy package files
+COPY package*.json ./
+
+# Install all dependencies (including devDependencies for build)
+RUN npm ci
+
+# Copy source files
+COPY . ./
+
+# Build TypeScript
+RUN npm run build
+
+
+# ----------- Deploy Phase -----------
+FROM node:18-alpine AS production
 
 # Create app directory
 WORKDIR /app
@@ -8,14 +28,12 @@ WORKDIR /app
 RUN addgroup -g 1001 -S nodejs && \
     adduser -S nodejs -u 1001
 
-# Copy package files
+# Copy only production dependencies
 COPY package*.json ./
-
-# Install only production dependencies
 RUN npm ci --only=production && npm cache clean --force
 
-# Copy the built application (assumes you run 'npm run build' before docker build)
-COPY dist/ ./dist/
+# Copy built app from builder
+COPY --from=builder /app/dist ./dist
 
 # Change ownership to nodejs user
 RUN chown -R nodejs:nodejs /app
